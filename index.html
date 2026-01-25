@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Графік роботи — UG Call Centre</title>
+
+<style>
+:root{
+  --bg1:#f6f8fc;--bg2:#eef3fb;--grid:#cfd7e6;
+  --text:#0b1220;--muted:#4b5b78;
+
+  --pill-purple:#b88cff;--pill-green:#69d27d;
+  --pill-blue:#5aa7ff;--pill-yellow:#ffd95a;
+  --pill-orange:#ffb155;
+
+  --pill-reserve:#e6f2ef;
+  --pill-reserve-border:#b7d8cf;
+  --pill-reserve-text:#2f5f55;
+
+  --card:#fff;
+  --soft:#f7f9fd;
+  --accent:#0b1220;
+
+  --sen-accent:#0b6bff;
+  --sen-soft:#e6f7ff;
+  --sen-border:#5aa7ff;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:linear-gradient(135deg,var(--bg1),var(--bg2));
+  font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  padding:10px;
+  color:var(--text)
+}
+.wrap{max-width:1200px;margin:auto}
+.header{display:flex;justify-content:space-between;flex-wrap:wrap;margin-bottom:8px}
+h1{font-size:16px;margin:0}
+.hint{font-size:11px;color:var(--muted)}
+
+.legend-top{
+  background:var(--card);
+  border:1px solid var(--grid);
+  border-radius:12px;
+  padding:6px 10px;
+  display:flex;gap:8px;flex-wrap:wrap;
+  font-size:11px;color:var(--muted);
+  margin-bottom:8px
+}
+
+.card{
+  background:var(--card);
+  border:1px solid var(--grid);
+  border-radius:14px;
+  margin-bottom:12px;
+  overflow:hidden
+}
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  flex-wrap:wrap;
+  padding:8px;
+  background:var(--soft)
+}
+.controls{display:flex;gap:6px;flex-wrap:wrap}
+.btn{
+  padding:6px 9px;
+  border-radius:10px;
+  border:1px solid var(--grid);
+  background:#fff;
+  font-weight:900;
+  font-size:12px;
+  cursor:pointer
+}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn.purple{background:var(--sen-accent);border-color:var(--sen-accent);color:#fff}
+
+.stats{display:flex;gap:10px;font-size:12px;font-weight:900;align-items:center}
+
+.table-wrap{overflow:auto;max-height:60vh}
+table{width:100%;border-collapse:separate;border-spacing:0;min-width:900px}
+th,td{border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);padding:5px;vertical-align:top}
+th{background:#f2f5fb;font-size:12px;position:sticky;top:0;z-index:2}
+.sticky-col{position:sticky;left:0;background:#f7f9fd;font-weight:900;z-index:3}
+
+.dow{display:block;font-size:10px;color:var(--muted)}
+
+.cell{display:flex;flex-direction:column;gap:4px}
+.pills{display:flex;gap:4px;flex-wrap:wrap}
+.pill{padding:3px 6px;border-radius:999px;font-size:11px;font-weight:900}
+.green{background:var(--pill-green)}
+.orange{background:var(--pill-orange)}
+.purple{background:var(--pill-purple)}
+.blue{background:var(--pill-blue)}
+.yellow{background:var(--pill-yellow)}
+
+/* ⭐ Старша — лазурна плашка */
+.pill.senior{
+  background: linear-gradient(135deg, #b9f1ff, #5aa7ff);
+  border: 1px solid #5aa7ff;
+  color: #003a5c;
+  box-shadow: 0 4px 10px rgba(90,167,255,.35);
+}
+
+/* 🛟 Запас — ненав’язчива м’ятно-сіра */
+.pill.reserve{
+  background: var(--pill-reserve);
+  border: 1px solid var(--pill-reserve-border);
+  color: var(--pill-reserve-text);
+}
+
+select{font-size:11px;padding:4px;border-radius:10px;border:1px solid var(--grid)}
+.timeSel{max-width:90px}
+
+/* ✏️ */
+.edit-btn{
+  display:none;
+  width:26px;height:26px;
+  border-radius:999px;
+  border:1px solid var(--grid);
+  background:#fff;
+  font-weight:900;
+  font-size:13px;
+  line-height:24px;
+  text-align:center;
+  cursor:pointer;
+  padding:0;
+  user-select:none;
+}
+.cell.compact select,
+.cell.compact .timeSel{display:none !important}
+.cell.compact .edit-btn{display:inline-block}
+.cell.compact[data-has="0"] .edit-btn{display:none}
+
+/* Старші — виділення */
+.senior-card{
+  border:2px solid var(--sen-border);
+  box-shadow:0 10px 30px rgba(90,167,255,.20);
+}
+.senior-card .topbar{
+  background:linear-gradient(135deg,var(--sen-soft), #ffffff);
+}
+.senior-card th{background:#eaf6ff}
+.senior-card .sticky-col{background:#f1f9ff}
+
+/* Лічильники по днях */
+.day-count{
+  margin-top:4px;
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  font-size:10px;
+  color:var(--muted);
+}
+.day-badge{
+  border:1px solid var(--grid);
+  background:#fff;
+  border-radius:999px;
+  padding:2px 6px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.day-badge .g{color:#0b6b2a}
+.day-badge .p{color:#6a2cff}
+
+/* PNG */
+.png-wrap{background:#fff;padding:12px;width:1200px}
+.png-title{font-weight:900;font-size:16px;margin:0 0 8px 0}
+.png-sub{margin:0 0 10px 0;font-size:12px;color:var(--muted)}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+<div class="header">
+  <div>
+    <h1>Графік роботи операторів</h1>
+    <div class="hint">UG Call Centre (спільний графік через Google Sheets)</div>
+  </div>
+</div>
+
+<div class="legend-top">
+  <b>Статуси:</b>
+  🟢 Робочий · 🟣 Вихідний · 🔵 Можливо · 🟡 Хворіє · ⭐ Старша · 🛟 Оператор запасу
+</div>
+
+<div class="card">
+  <div class="topbar">
+    <div class="controls">
+      <button class="btn" id="btnThisWeek">Цей тиждень</button>
+      <button class="btn" id="btnNextWeek">Наступний тиждень</button>
+      <button class="btn" id="btnAddOp">+ Оператор</button>
+      <button class="btn" id="btnDelOp">− Оператор</button>
+      <button class="btn" id="btnClear">Очистити</button>
+      <button class="btn" id="btnExport">Excel</button>
+      <button class="btn purple" id="btnTGTomorrowShot">TG: завтра (PNG)</button>
+      <button class="btn primary" id="btnTGWeekShot">TG: тиждень (PNG)</button>
+      <button class="btn" id="btnCompact">Режим: тільки вибране</button>
+    </div>
+    <div class="stats" id="stats">🟢0 | 🟣0 | 🟡0 | 🔵0 | 🛟0</div>
+  </div>
+</div>
+
+<div class="card senior-card">
+  <div class="topbar"><b>Старші зміни</b></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr id="seniorHead"><th class="sticky-col">Старший</th></tr>
+      </thead>
+      <tbody id="seniorBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="operatorsCard">
+  <div class="topbar"><b>Оператори</b></div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr id="opHead"><th class="sticky-col">Оператор</th></tr>
+      </thead>
+      <tbody id="opBody"></tbody>
+    </table>
+  </div>
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<script>
+/* ===================== GOOGLE SHEETS API ===================== */
+const API_URL = "https://script.google.com/macros/s/AKfycbw3EXZx91Fg7Jp5CgtX9veWph5qpmd0NY1uDTjGh6mFEnzGE2g0tc5Er-uC73-M0uVa0w/exec";
+const API_TOKEN = ""; // у тебе токен вимкнений
+const SHARED_KEY = "ug_schedule_shared_v1";
+
+async function apiLoadShared(){
+  const url = `${API_URL}?action=load&key=${encodeURIComponent(SHARED_KEY)}&token=${encodeURIComponent(API_TOKEN)}`;
+  const r = await fetch(url);
+  const j = await r.json();
+  if(!j.ok) throw new Error(j.error || "API load error");
+  return j.value ? JSON.parse(j.value) : null;
+}
+
+/* ВАЖЛИВО: form-urlencoded POST (щоб GitHub Pages зберігав без CORS проблем) */
+let saveTimer = null;
+async function apiSaveShared(data){
+  if(saveTimer) clearTimeout(saveTimer);
+  return new Promise((resolve,reject)=>{
+    saveTimer = setTimeout(async ()=>{
+      try{
+        const form = new URLSearchParams();
+        form.set("action","save");
+        form.set("key",SHARED_KEY);
+        form.set("token",API_TOKEN);
+        form.set("value", JSON.stringify(data));
+
+        const r = await fetch(API_URL, {
+          method:"POST",
+          body: form,
+          redirect:"follow"
+        });
+        const j = await r.json();
+        if(!j.ok) throw new Error(j.error || "API save error");
+        resolve(true);
+      }catch(e){ reject(e); }
+    }, 350);
+  });
+}
+
+/* ===================== CONFIG ===================== */
+const SENIORS=["Кукурудза Вікторія","Михайлова Катерина"];
+const DEFAULT_OPERATORS=[
+  "Бородін Кирил","Верещак Марина","Гарасимчук Олег","Горбатюк Олег",
+  "Гриценко Анастасія","Жаловага Тетяна","Калошин Альона","Клопотюк Ольга",
+  "Куленко Марина","Мармонтова Аліса","Мартинюк Віктор","Морозова Тетяна",
+  "Салій Юлія","Степанюк Віка","Труш Світлана","Чайковська Діана",
+  "Шестака Дмитро","Рудова Яна","Гукалюк Діана","Лозинська Юлія",
+  "Шкода Ольга","Чубінашвілі Тетяна","Артемиченко Ніна","Шалева Анастасія"
+];
+const DOW=["пн","вт","ср","чт","пт","сб","нд"];
+
+const STATUS={WORK:"work",OFF:"off",POSSIBLE:"possible",SICK:"sick",RESERVE:"reserve"};
+const LABELS={"":"Обрати",work:"Робочий",off:"Вихідний",possible:"Можливо",sick:"Хворіє",reserve:"Оператор запасу"};
+
+const SEN_STATUS={SENIOR:"senior",WORK:"work",OFF:"off"};
+const SEN_LABELS={"":"Обрати",senior:"Старша",work:"Робочий",off:"Вихідний"};
+
+const TIMES=[...Array(13)].map((_,i)=>String(i+9).padStart(2,"0")+":00");
+
+const LS_OP="ug_ops_state";
+const LS_SEN="ug_sen_state";
+const LS_OPLIST="ug_ops_list";
+const LS_WEEK="ug_week_start";
+const LS_COMPACT="ug_compact_mode";
+
+let SHARED=null;
+
+/* ===================== DATE ===================== */
+function startOfWeek(d){
+  d=new Date(d);
+  const day=d.getDay()||7;
+  d.setDate(d.getDate()-day+1);
+  d.setHours(0,0,0,0);
+  return d;
+}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function fmt(d){return String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")}
+function fmtISO(d){return d.toISOString().slice(0,10)}
+
+let currentWeekStart = (()=>{
+  const saved = localStorage.getItem(LS_WEEK);
+  if(saved){
+    const d=new Date(saved);
+    if(!isNaN(d)) return startOfWeek(d);
+  }
+  return startOfWeek(new Date());
+})();
+function setWeekStart(d){
+  currentWeekStart=startOfWeek(d);
+  localStorage.setItem(LS_WEEK,currentWeekStart.toISOString());
+  renderAll();
+  syncToGoogle();
+}
+
+/* ===================== STORAGE ===================== */
+function load(k){try{return JSON.parse(localStorage.getItem(k))||{}}catch{return{}}}
+function save(k,v){localStorage.setItem(k,JSON.stringify(v))}
+
+/* ===================== COMPACT ===================== */
+function isCompact(){ return localStorage.getItem(LS_COMPACT)==="1"; }
+function setCompact(v){
+  localStorage.setItem(LS_COMPACT, v ? "1":"0");
+  renderAll();
+  syncToGoogle();
+}
+function applyCompactToCell(cellEl, hasValue){
+  if(isCompact()) cellEl.classList.add("compact"); else cellEl.classList.remove("compact");
+  cellEl.dataset.has = hasValue ? "1" : "0";
+}
+
+/* ===================== UI HELPERS ===================== */
+function pillHTML(d, mode="op"){
+  if(!d?.type) return "";
+  if(mode==="sen"){
+    if(d.type===SEN_STATUS.OFF) return `<span class="pill purple">Вихідний</span>`;
+    if(d.type===SEN_STATUS.SENIOR) return `<span class="pill senior">⭐ Старша</span><span class="pill orange">${d.start}–${d.end}</span>`;
+    if(d.type===SEN_STATUS.WORK) return `<span class="pill green">Робочий</span><span class="pill orange">${d.start}–${d.end}</span>`;
+    return "";
+  }
+  if(d.type===STATUS.OFF) return `<span class="pill purple">Вихідний</span>`;
+  if(d.type===STATUS.SICK) return `<span class="pill yellow">Хворіє</span>`;
+  if(d.type===STATUS.POSSIBLE) return `<span class="pill blue">Можливо</span>`;
+  if(d.type===STATUS.RESERVE) return `<span class="pill reserve">🛟 Запас</span>`;
+  if(d.type===STATUS.WORK) return `<span class="pill green">Робочий</span><span class="pill orange">${d.start}–${d.end}</span>`;
+  return "";
+}
+
+function statusSelect(val, mode="op"){
+  const s=document.createElement("select");
+  const list = (mode==="sen")
+    ? ["",SEN_STATUS.SENIOR,SEN_STATUS.WORK,SEN_STATUS.OFF]
+    : ["",STATUS.WORK,STATUS.OFF,STATUS.POSSIBLE,STATUS.SICK,STATUS.RESERVE];
+  const labels = (mode==="sen") ? SEN_LABELS : LABELS;
+
+  list.forEach(v=>{
+    const o=document.createElement("option");
+    o.value=v; o.textContent=labels[v]||v;
+    if(v===val) o.selected=true;
+    if(v==="") o.disabled=true;
+    s.appendChild(o);
+  });
+  return s;
+}
+
+function timeSelect(v){
+  const s=document.createElement("select");
+  s.className="timeSel";
+  TIMES.forEach(t=>{
+    const o=document.createElement("option");
+    o.value=t; o.textContent=t;
+    if(t===v) o.selected=true;
+    s.appendChild(o);
+  });
+  return s;
+}
+
+/* ===================== TABLE STATE ===================== */
+function getCell(state,key,i,d){return state[key]?.[i]?.[d]||{}}
+function setCell(state,key,i,d,val){
+  state[key]=state[key]||{};
+  state[key][i]=state[key][i]||{};
+  state[key][i][d]=val;
+}
+
+/* ===================== COUNTS + HEAD ===================== */
+function dayCountsFor(mode){
+  const key=fmtISO(currentWeekStart);
+  let names, lsKey;
+  if(mode==="sen"){ names=SENIORS; lsKey=LS_SEN; }
+  else { names=JSON.parse(localStorage.getItem(LS_OPLIST))||DEFAULT_OPERATORS; lsKey=LS_OP; }
+
+  const state=load(lsKey);
+  const counts=Array.from({length:7},()=>({work:0,off:0}));
+
+  names.forEach((_,i)=>{
+    for(let d=0;d<7;d++){
+      const c=getCell(state,key,i,d);
+      if(!c?.type) continue;
+
+      if(mode==="sen"){
+        if(c.type===SEN_STATUS.SENIOR || c.type===SEN_STATUS.WORK) counts[d].work++;
+        if(c.type===SEN_STATUS.OFF) counts[d].off++;
+      }else{
+        if(c.type===STATUS.WORK) counts[d].work++;
+        if(c.type===STATUS.OFF) counts[d].off++;
+        // possible/sick/reserve — не рахуємо в цих двох
+      }
+    }
+  });
+  return counts;
+}
+
+function buildHead(row, counts){
+  row.innerHTML='<th class="sticky-col">'+(row.id==="seniorHead"?"Старший":"Оператор")+'</th>';
+  for(let i=0;i<7;i++){
+    const c=counts?.[i]||{work:0,off:0};
+    const th=document.createElement("th");
+    th.innerHTML=`
+      ${fmt(addDays(currentWeekStart,i))}
+      <span class="dow">${DOW[i]}</span>
+      <div class="day-count">
+        <span class="day-badge"><span class="g">🟢</span> ${c.work}</span>
+        <span class="day-badge"><span class="p">🟣</span> ${c.off}</span>
+      </div>`;
+    row.appendChild(th);
+  }
+}
+
+/* ===================== RENDER TABLE ===================== */
+function renderTable(headId,bodyId,names,lsKey,mode="op"){
+  const state=load(lsKey);
+  const key=fmtISO(currentWeekStart);
+  const counts=dayCountsFor(mode);
+
+  buildHead(document.getElementById(headId), counts);
+  const body=document.getElementById(bodyId);
+  body.innerHTML="";
+
+  names.forEach((name,i)=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td class="sticky-col">${name}</td>`;
+
+    for(let d=0;d<7;d++){
+      const td=document.createElement("td");
+      const cell=document.createElement("div"); cell.className="cell";
+      const data=getCell(state,key,i,d);
+      const hasValue=!!data?.type;
+
+      const pills=document.createElement("div");
+      pills.className="pills";
+      pills.innerHTML=pillHTML(data, mode);
+
+      const editBtn=document.createElement("button");
+      editBtn.className="edit-btn";
+      editBtn.textContent="✏️";
+      editBtn.onclick=()=>{
+        cell.classList.remove("compact");
+        sel.style.display="";
+        sync();
+      };
+
+      const sel=statusSelect(data.type||"", mode);
+      const st=timeSelect(data.start||"09:00");
+      const en=timeSelect(data.end||"21:00");
+
+      function sync(){
+        const v=sel.value;
+        if(mode==="sen"){
+          const on=(v===SEN_STATUS.SENIOR||v===SEN_STATUS.WORK);
+          st.style.display=en.style.display=on?"":"none";
+        }else{
+          const on=(v===STATUS.WORK);
+          st.style.display=en.style.display=on?"":"none";
+        }
+      }
+
+      function saveCellNow(){
+        const v=sel.value; if(!v) return;
+
+        if(mode==="sen"){
+          if(v===SEN_STATUS.SENIOR||v===SEN_STATUS.WORK)
+            setCell(state,key,i,d,{type:v,start:st.value,end:en.value});
+          else
+            setCell(state,key,i,d,{type:v});
+        }else{
+          if(v===STATUS.WORK)
+            setCell(state,key,i,d,{type:v,start:st.value,end:en.value});
+          else
+            setCell(state,key,i,d,{type:v});
+        }
+
+        save(lsKey,state);
+        renderAll();
+        syncToGoogle();
+      }
+
+      sel.onchange=saveCellNow;
+      st.onchange=saveCellNow;
+      en.onchange=saveCellNow;
+
+      sync();
+      cell.append(pills,editBtn,sel,st,en);
+      applyCompactToCell(cell,hasValue);
+
+      td.appendChild(cell);
+      tr.appendChild(td);
+    }
+
+    body.appendChild(tr);
+  });
+}
+
+/* ===================== STATS ===================== */
+function renderStats(){
+  const key=fmtISO(currentWeekStart);
+  let w=0,o=0,s=0,p=0,r=0;
+  const opsState=load(LS_OP)[key]||{};
+  Object.values(opsState).forEach(days=>{
+    Object.values(days).forEach(d=>{
+      if(!d.type) return;
+      if(d.type===STATUS.WORK) w++;
+      if(d.type===STATUS.OFF) o++;
+      if(d.type===STATUS.SICK) s++;
+      if(d.type===STATUS.POSSIBLE) p++;
+      if(d.type===STATUS.RESERVE) r++;
+    });
+  });
+  document.getElementById("stats").textContent=`🟢${w} | 🟣${o} | 🟡${s} | 🔵${p} | 🛟${r}`;
+}
+
+function renderAll(){
+  const ops=JSON.parse(localStorage.getItem(LS_OPLIST))||DEFAULT_OPERATORS;
+  renderTable("seniorHead","seniorBody",SENIORS,LS_SEN,"sen");
+  renderTable("opHead","opBody",ops,LS_OP,"op");
+  renderStats();
+  document.getElementById("btnCompact").textContent =
+    isCompact() ? "Режим: редагування" : "Режим: тільки вибране";
+}
+
+/* ===================== SYNC TO GOOGLE ===================== */
+async function syncToGoogle(){
+  const data = {
+    weekStart: localStorage.getItem(LS_WEEK) || null,
+    opsList: JSON.parse(localStorage.getItem(LS_OPLIST) || "null"),
+    opsState: load(LS_OP),
+    senState: load(LS_SEN),
+    compact: localStorage.getItem(LS_COMPACT) || "0"
+  };
+  SHARED = data;
+  try{
+    await apiSaveShared(data);
+  }catch(e){
+    console.warn("Google save error:", e);
+  }
+}
+
+function localSnapshot(){
+  return JSON.stringify({
+    weekStart: localStorage.getItem(LS_WEEK) || null,
+    opsList: JSON.parse(localStorage.getItem(LS_OPLIST) || "null"),
+    opsState: load(LS_OP),
+    senState: load(LS_SEN),
+    compact: localStorage.getItem(LS_COMPACT) || "0"
+  });
+}
+
+async function applyShared(shared){
+  if(shared.weekStart) localStorage.setItem(LS_WEEK, shared.weekStart);
+  if(shared.opsList) localStorage.setItem(LS_OPLIST, JSON.stringify(shared.opsList));
+  save(LS_OP, shared.opsState || {});
+  save(LS_SEN, shared.senState || {});
+  localStorage.setItem(LS_COMPACT, String(shared.compact ?? "0"));
+
+  const ws = localStorage.getItem(LS_WEEK);
+  if(ws){
+    const d = new Date(ws);
+    if(!isNaN(d)) currentWeekStart = startOfWeek(d);
+  }
+  renderAll();
+}
+
+/* ===================== BUTTONS ===================== */
+document.getElementById("btnCompact").onclick=()=>setCompact(!isCompact());
+document.getElementById("btnThisWeek").onclick=()=>setWeekStart(new Date());
+document.getElementById("btnNextWeek").onclick=()=>{
+  const thisMon=startOfWeek(new Date());
+  setWeekStart(addDays(thisMon,7));
+};
+
+document.getElementById("btnAddOp").onclick=()=>{
+  const n=prompt("ПІБ оператора:");
+  if(!n) return;
+  const ops=JSON.parse(localStorage.getItem(LS_OPLIST))||DEFAULT_OPERATORS;
+  ops.push(n.trim());
+  localStorage.setItem(LS_OPLIST,JSON.stringify(ops));
+  renderAll();
+  syncToGoogle();
+};
+
+document.getElementById("btnDelOp").onclick=()=>{
+  const ops=JSON.parse(localStorage.getItem(LS_OPLIST))||DEFAULT_OPERATORS;
+  const list=ops.map((n,i)=>`${i+1}. ${n}`).join("\n");
+  const v=parseInt(prompt("Кого видалити?\n"+list))-1;
+  if(v>=0){
+    ops.splice(v,1);
+    localStorage.setItem(LS_OPLIST,JSON.stringify(ops));
+    renderAll();
+    syncToGoogle();
+  }
+};
+
+document.getElementById("btnClear").onclick=()=>{
+  save(LS_OP,{});
+  save(LS_SEN,{});
+  renderAll();
+  syncToGoogle();
+};
+
+/* ===================== EXCEL EXPORT ===================== */
+document.getElementById("btnExport").onclick=()=>{
+  const wb=XLSX.utils.book_new();
+  const wk=fmtISO(currentWeekStart);
+
+  // Seniors
+  {
+    const st=load(LS_SEN);
+    const rows=[["Ім'я",...DOW.map((_,i)=>fmt(addDays(currentWeekStart,i)))]];
+    SENIORS.forEach((n,i)=>{
+      const r=[n];
+      for(let d=0;d<7;d++){
+        const c=getCell(st,wk,i,d);
+        if(c.type===SEN_STATUS.SENIOR) r.push(`Старша ${c.start}-${c.end}`);
+        else if(c.type===SEN_STATUS.WORK) r.push(`Робочий ${c.start}-${c.end}`);
+        else if(c.type===SEN_STATUS.OFF) r.push("Вихідний");
+        else r.push("");
+      }
+      rows.push(r);
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),"Старші");
+  }
+
+  // Operators
+  {
+    const names=JSON.parse(localStorage.getItem(LS_OPLIST))||DEFAULT_OPERATORS;
+    const st=load(LS_OP);
+    const rows=[["Ім'я",...DOW.map((_,i)=>fmt(addDays(currentWeekStart,i)))]];
+    names.forEach((n,i)=>{
+      const r=[n];
+      for(let d=0;d<7;d++){
+        const c=getCell(st,wk,i,d);
+        if(c.type===STATUS.WORK) r.push(`Робочий ${c.start}-${c.end}`);
+        else if(c.type===STATUS.OFF) r.push("Вихідний");
+        else if(c.type===STATUS.SICK) r.push("Хворіє");
+        else if(c.type===STATUS.POSSIBLE) r.push("Можливо");
+        else if(c.type===STATUS.RESERVE) r.push("Оператор запасу");
+        else r.push("");
+      }
+      rows.push(r);
+    });
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),"Оператори");
+  }
+
+  XLSX.writeFile(wb,"UG_Schedule.xlsx");
+};
+
+/* ===================== PNG EXPORT (TG) ===================== */
+function dayIndexTomorrow(){
+  const t=new Date(); t.setDate(t.getDate()+1);
+  return (t.getDay()||7)-1;
+}
+function downloadDataUrl(dataUrl, filename){
+  const a=document.createElement("a");
+  a.href=dataUrl; a.download=filename; a.click();
+}
+
+function cloneCardsForPng({mode="week",dayIndex=0}){
+  const tmp=document.createElement("div");
+  tmp.className="png-wrap";
+  tmp.style.position="fixed";
+  tmp.style.left="-99999px";
+  tmp.style.top="0";
+
+  const title=document.createElement("p"); title.className="png-title";
+  const sub=document.createElement("p"); sub.className="png-sub";
+
+  if(mode==="day"){
+    title.textContent="UG Call Centre — Графік на завтра";
+    sub.textContent=`Дата: ${fmt(addDays(currentWeekStart,dayIndex))} (${DOW[dayIndex]})`;
+  }else{
+    title.textContent="UG Call Centre — Графік на тиждень";
+    sub.textContent=`Період: ${fmt(currentWeekStart)}–${fmt(addDays(currentWeekStart,6))}`;
+  }
+  tmp.append(title,sub);
+
+  const senClone=document.querySelector(".senior-card").cloneNode(true);
+  const opClone=document.getElementById("operatorsCard").cloneNode(true);
+
+  senClone.querySelectorAll("select,.timeSel,.edit-btn").forEach(el=>el.remove());
+  opClone.querySelectorAll("select,.timeSel,.edit-btn").forEach(el=>el.remove());
+
+  tmp.append(senClone, opClone);
+
+  tmp.querySelectorAll(".table-wrap").forEach(w=>{w.style.maxHeight="none"; w.style.overflow="visible";});
+  tmp.querySelectorAll("th,.sticky-col").forEach(el=>{el.style.position="static";});
+
+  if(mode==="day"){
+    tmp.querySelectorAll("table").forEach(tbl=>{
+      tbl.querySelectorAll("tr").forEach(r=>{
+        Array.from(r.children).forEach((c,idx)=>{
+          if(idx===0) return;
+          if(idx-1!==dayIndex) c.style.display="none";
+        });
+      });
+    });
+  }
+
+  document.body.appendChild(tmp);
+  return tmp;
+}
+
+async function exportPngTomorrow(){
+  const d=dayIndexTomorrow();
+  const tmp=cloneCardsForPng({mode:"day",dayIndex:d});
+  const canvas=await html2canvas(tmp,{scale:2,backgroundColor:"#fff"});
+  document.body.removeChild(tmp);
+  downloadDataUrl(canvas.toDataURL("image/png"),`UG_Завтра_${fmt(addDays(currentWeekStart,d)).replaceAll(".","-")}.png`);
+}
+async function exportPngWeek(){
+  const tmp=cloneCardsForPng({mode:"week"});
+  const canvas=await html2canvas(tmp,{scale:2,backgroundColor:"#fff"});
+  document.body.removeChild(tmp);
+  downloadDataUrl(canvas.toDataURL("image/png"),`UG_Тиждень_${fmt(currentWeekStart).replaceAll(".","-")}_${fmt(addDays(currentWeekStart,6)).replaceAll(".","-")}.png`);
+}
+
+document.getElementById("btnTGTomorrowShot").onclick=()=>exportPngTomorrow();
+document.getElementById("btnTGWeekShot").onclick=()=>exportPngWeek();
+
+/* ===================== START ===================== */
+(async ()=>{
+  try{
+    SHARED = await apiLoadShared();
+  }catch(e){
+    console.warn("Не вдалося завантажити з Google. Працюю локально.", e);
+    SHARED = null;
+  }
+
+  if(!SHARED){
+    SHARED = {
+      weekStart: localStorage.getItem(LS_WEEK) || startOfWeek(new Date()).toISOString(),
+      opsList: JSON.parse(localStorage.getItem(LS_OPLIST) || "null") || DEFAULT_OPERATORS,
+      opsState: load(LS_OP),
+      senState: load(LS_SEN),
+      compact: localStorage.getItem(LS_COMPACT) || "0"
+    };
+    try{ await apiSaveShared(SHARED); }catch(e){ console.warn(e); }
+  }
+
+  await applyShared(SHARED);
+
+  // автооновлення (щоб всі бачили зміни)
+  setInterval(async ()=>{
+    try{
+      const latest = await apiLoadShared();
+      if(!latest) return;
+      const nowStr = localSnapshot();
+      const latestStr = JSON.stringify(latest);
+      if(latestStr !== nowStr){
+        await applyShared(latest);
+      }
+    }catch(e){
+      // тихо
+    }
+  }, 10000);
+})();
+</script>
+</body>
+</html>
