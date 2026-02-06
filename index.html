@@ -236,9 +236,8 @@ select{font-size:11px;padding:4px;border-radius:10px;border:1px solid var(--grid
 
 <script>
 /* ===================== GOOGLE SHEETS API ===================== */
-const API_URL = "https://script.google.com/macros/s/AKfycbyDXNothN0L5V-kEUhM03tMiw4lZRqj6Uu-3_vdprBDK4WoTk7HUqpJE9NMhvVfP6u6eQ/exec";
-
-  const API_TOKEN = ""; // у тебе токен вимкнений
+const API_URL = "https://script.google.com/macros/s/AKfycbw3EXZx91Fg7Jp5CgtX9veWph5qpmd0NY1uDTjGh6mFEnzGE2g0tc5Er-uC73-M0uVa0w/exec";
+const API_TOKEN = ""; // у тебе токен вимкнений
 const SHARED_KEY = "ug_schedule_shared_v1";
 
 async function apiLoadShared(){
@@ -392,12 +391,60 @@ function timeSelect(v){
   return s;
 }
 
-/* ===================== TABLE STATE ===================== */
-function getCell(state,key,i,d){return state[key]?.[i]?.[d]||{}}
-function setCell(state,key,i,d,val){
+/* ===================== TABLE STATE (FIX: by NAME, not index) ===================== */
+function getCell(state,key,name,d){ return state[key]?.[name]?.[d] || {} }
+function setCell(state,key,name,d,val){
   state[key]=state[key]||{};
-  state[key][i]=state[key][i]||{};
-  state[key][i][d]=val;
+  state[key][name]=state[key][name]||{};
+  state[key][name][d]=val;
+}
+
+/* ===================== MIGRATION (old index-based -> name-based) ===================== */
+function isIndexKeyedWeekObj(weekObj){
+  if(!weekObj || typeof weekObj!=="object") return false;
+  const keys = Object.keys(weekObj);
+  if(keys.length===0) return false;
+  // old format used numeric-like keys: "0","1","2"...
+  return keys.some(k => /^\d+$/.test(k));
+}
+
+function migrateStateToNames(lsKey, names){
+  const st = load(lsKey);
+  let changed = false;
+
+  Object.keys(st).forEach(weekKey=>{
+    const weekObj = st[weekKey];
+    if(!isIndexKeyedWeekObj(weekObj)) return;
+
+    const newWeek = {};
+    Object.keys(weekObj).forEach(k=>{
+      if(!/^\d+$/.test(k)) return;
+      const idx = parseInt(k,10);
+      const name = names[idx];
+      if(!name) return;
+      newWeek[name] = weekObj[k];
+    });
+
+    // also keep any already name-based entries if they exist
+    Object.keys(weekObj).forEach(k=>{
+      if(!/^\d+$/.test(k)){
+        newWeek[k] = weekObj[k];
+      }
+    });
+
+    st[weekKey] = newWeek;
+    changed = true;
+  });
+
+  if(changed) save(lsKey, st);
+  return changed;
+}
+
+function migrateAllIfNeeded(){
+  const ops = JSON.parse(localStorage.getItem(LS_OPLIST))||DEFAULT_OPERATORS;
+  const ch1 = migrateStateToNames(LS_OP, ops);
+  const ch2 = migrateStateToNames(LS_SEN, SENIORS);
+  return ch1 || ch2;
 }
 
 /* ===================== COUNTS + HEAD ===================== */
@@ -410,9 +457,9 @@ function dayCountsFor(mode){
   const state=load(lsKey);
   const counts=Array.from({length:7},()=>({work:0,off:0}));
 
-  names.forEach((_,i)=>{
+  names.forEach((name)=>{
     for(let d=0;d<7;d++){
-      const c=getCell(state,key,i,d);
+      const c=getCell(state,key,name,d);
       if(!c?.type) continue;
 
       if(mode==="sen"){
@@ -421,7 +468,6 @@ function dayCountsFor(mode){
       }else{
         if(c.type===STATUS.WORK) counts[d].work++;
         if(c.type===STATUS.OFF) counts[d].off++;
-        // possible/sick/reserve — не рахуємо в цих двох
       }
     }
   });
@@ -454,14 +500,14 @@ function renderTable(headId,bodyId,names,lsKey,mode="op"){
   const body=document.getElementById(bodyId);
   body.innerHTML="";
 
-  names.forEach((name,i)=>{
+  names.forEach((name)=>{
     const tr=document.createElement("tr");
     tr.innerHTML=`<td class="sticky-col">${name}</td>`;
 
     for(let d=0;d<7;d++){
       const td=document.createElement("td");
       const cell=document.createElement("div"); cell.className="cell";
-      const data=getCell(state,key,i,d);
+      const data=getCell(state,key,name,d);
       const hasValue=!!data?.type;
 
       const pills=document.createElement("div");
@@ -497,14 +543,14 @@ function renderTable(headId,bodyId,names,lsKey,mode="op"){
 
         if(mode==="sen"){
           if(v===SEN_STATUS.SENIOR||v===SEN_STATUS.WORK)
-            setCell(state,key,i,d,{type:v,start:st.value,end:en.value});
+            setCell(state,key,name,d,{type:v,start:st.value,end:en.value});
           else
-            setCell(state,key,i,d,{type:v});
+            setCell(state,key,name,d,{type:v});
         }else{
           if(v===STATUS.WORK)
-            setCell(state,key,i,d,{type:v,start:st.value,end:en.value});
+            setCell(state,key,name,d,{type:v,start:st.value,end:en.value});
           else
-            setCell(state,key,i,d,{type:v});
+            setCell(state,key,name,d,{type:v});
         }
 
         save(lsKey,state);
@@ -594,7 +640,11 @@ async function applyShared(shared){
     const d = new Date(ws);
     if(!isNaN(d)) currentWeekStart = startOfWeek(d);
   }
+
+  // 🔥 IMPORTANT: migrate after applying shared data
+  const migrated = migrateAllIfNeeded();
   renderAll();
+  if(migrated) syncToGoogle();
 }
 
 /* ===================== BUTTONS ===================== */
@@ -611,6 +661,7 @@ document.getElementById("btnAddOp").onclick=()=>{
   const ops=JSON.parse(localStorage.getItem(LS_OPLIST))||DEFAULT_OPERATORS;
   ops.push(n.trim());
   localStorage.setItem(LS_OPLIST,JSON.stringify(ops));
+  // (state is name-keyed, so nothing shifts)
   renderAll();
   syncToGoogle();
 };
@@ -622,6 +673,8 @@ document.getElementById("btnDelOp").onclick=()=>{
   if(v>=0){
     ops.splice(v,1);
     localStorage.setItem(LS_OPLIST,JSON.stringify(ops));
+    // we do NOT need to shift anything; optionally keep removed person's data in storage
+    // (can be cleaned later if needed)
     renderAll();
     syncToGoogle();
   }
@@ -643,10 +696,10 @@ document.getElementById("btnExport").onclick=()=>{
   {
     const st=load(LS_SEN);
     const rows=[["Ім'я",...DOW.map((_,i)=>fmt(addDays(currentWeekStart,i)))]];
-    SENIORS.forEach((n,i)=>{
+    SENIORS.forEach((n)=>{
       const r=[n];
       for(let d=0;d<7;d++){
-        const c=getCell(st,wk,i,d);
+        const c=getCell(st,wk,n,d);
         if(c.type===SEN_STATUS.SENIOR) r.push(`Старша ${c.start}-${c.end}`);
         else if(c.type===SEN_STATUS.WORK) r.push(`Робочий ${c.start}-${c.end}`);
         else if(c.type===SEN_STATUS.OFF) r.push("Вихідний");
@@ -662,10 +715,10 @@ document.getElementById("btnExport").onclick=()=>{
     const names=JSON.parse(localStorage.getItem(LS_OPLIST))||DEFAULT_OPERATORS;
     const st=load(LS_OP);
     const rows=[["Ім'я",...DOW.map((_,i)=>fmt(addDays(currentWeekStart,i)))]];
-    names.forEach((n,i)=>{
+    names.forEach((n)=>{
       const r=[n];
       for(let d=0;d<7;d++){
-        const c=getCell(st,wk,i,d);
+        const c=getCell(st,wk,n,d);
         if(c.type===STATUS.WORK) r.push(`Робочий ${c.start}-${c.end}`);
         else if(c.type===STATUS.OFF) r.push("Вихідний");
         else if(c.type===STATUS.SICK) r.push("Хворіє");
@@ -793,6 +846,3 @@ document.getElementById("btnTGWeekShot").onclick=()=>exportPngWeek();
 </script>
 </body>
 </html>
-
-
-
